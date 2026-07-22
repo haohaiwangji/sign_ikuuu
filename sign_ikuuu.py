@@ -2,18 +2,49 @@ from playwright.sync_api import sync_playwright
 import requests
 import os
 import time
-from wxmsg import send_wx
+import json
 
-# 企业微信配置
-corpid = os.environ.get('WX_CORPID') or ''
+# PushPlus 配置
 corpsecret = os.environ.get('WX_CORPSECRET') or ''
-agentid = os.environ.get('WX_AGENTID') or ''
 
 USER_AGENT = (
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
     'AppleWebKit/537.36 (KHTML, like Gecko) '
     'Chrome/120.0.0.0 Safari/537.36'
 )
+
+
+# ─────────────────────────────
+# PushPlus 推送
+# ─────────────────────────────
+def send_pushplus(title, content):
+    """
+    通过 PushPlus 推送消息到微信
+    文档：https://www.pushplus.plus/doc/guide/api.html
+    """
+    if not corpsecret:
+        print('未配置 WX_CORPSECRET，跳过推送')
+        return
+
+    url = 'https://www.pushplus.plus/send'
+
+    data = {
+        'token': corpsecret,
+        'title': title,
+        'content': content,
+        'template': 'txt'
+    }
+
+    try:
+        resp = requests.post(
+            url,
+            json=data,
+            timeout=15
+        )
+        result = resp.json()
+        print(f'PushPlus 推送结果：{result}')
+    except Exception as e:
+        print(f'PushPlus 推送失败：{str(e)}')
 
 
 # ─────────────────────────────
@@ -93,7 +124,7 @@ def playwright_login(email, passwd):
 
         print('点击验证按钮...')
 
-        # 点击 “点我开始验证”
+        # 点击 "点我开始验证"
         try:
 
             page.click('.geetest_btn_click', timeout=5000)
@@ -240,12 +271,10 @@ def handler(event=None, context=None):
         print('\n最终结果：')
         print(final_msg)
 
-        # 企业微信通知
-        send_wx(
-            f"[ikuuu] 多账号签到结果：\n{final_msg}",
-            corpid,
-            corpsecret,
-            agentid
+        # PushPlus 推送通知
+        send_pushplus(
+            '[ikuuu] 多账号签到结果',
+            final_msg
         )
 
     except Exception as e:
@@ -254,11 +283,9 @@ def handler(event=None, context=None):
 
         print(content)
 
-        send_wx(
-            f"[ikuuu] 签到结果：{content}",
-            corpid,
-            corpsecret,
-            agentid
+        send_pushplus(
+            '[ikuuu] 签到结果',
+            content
         )
 
     return '任务完成'
